@@ -6,6 +6,10 @@ on:
     - cron: '*/5 * * * *'
   workflow_dispatch: 
 
+env:
+  # Forces all JavaScript steps to run on the modern Node 24 architecture securely
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   run_cron_loop:
     runs-on: ubuntu-latest
@@ -18,7 +22,7 @@ jobs:
       - name: Setup Node Runtime Environment
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24' # Upgraded to 24 to match modern runner standards
 
       - name: Install Google Chrome Dependencies
         run: npm install puppeteer
