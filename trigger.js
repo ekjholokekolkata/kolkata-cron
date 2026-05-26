@@ -3,8 +3,13 @@ const puppeteer = require('puppeteer');
 (async () => {
     console.log("Launching headless Chrome wrapper...");
     const browser = await puppeteer.launch({ 
-        headless: "new",
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        headless: true, // Updated from deprecated "new" to standard true
+        args: [
+            '--no-sandbox', 
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage', // CRITICAL: Fixes Docker/Container low-memory crashes
+            '--disable-gpu'            // Prevents headless hardware acceleration bugs on Linux
+        ]
     });
     const page = await browser.newPage();
 
@@ -19,6 +24,7 @@ const puppeteer = require('puppeteer');
             timeout: 45000
         });
 
+        console.log("Bypassing potential security gates (Sleeping 6 seconds)...");
         // Sleep for 6 seconds to let the aes.js run, generate the cookie, and reload
         await new Promise(r => setTimeout(r, 6000));
 
@@ -26,10 +32,15 @@ const puppeteer = require('puppeteer');
         console.log(`Landed successfully on: ${finalUrl}`);
         
         const content = await page.content();
-        if (content.includes("aes.js") || content.includes("Javascript to work")) {
+        
+        // Comprehensive check for anti-bot or JS-validation screening text
+        if (content.includes("aes.js") || content.includes("Javascript to work") || content.includes("Checking your browser")) {
             console.log("Execution Status: Blocked by security gate.");
         } else {
             console.log("Execution Status: Success! Script parsed cleanly.");
+            // Print out the output text of your PHP file (e.g., "Status: Active - Check Complete.")
+            const bodyText = await page.evaluate(() => document.body.innerText);
+            console.log(`PHP Output: ${bodyText.trim()}`);
         }
 
     } catch (error) {
@@ -37,4 +48,5 @@ const puppeteer = require('puppeteer');
     }
 
     await browser.close();
+    console.log("Browser closed. Cycle finished.");
 })();
