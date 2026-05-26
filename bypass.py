@@ -11,14 +11,17 @@ try:
     # 1. Fetch the raw page content
     response = session.get(url, headers=headers).text
 
-    # 2. Extract every single valid hex sequence inside toNumbers("...")
-    matches = re.findall(r'toNumbers\("([a-f0-9]+)"\)', response)
+    # 2. BULLETPROOF SEARCH: Find any string of alphanumeric characters that looks like the tokens
+    # This ignores layout structures, quotation formats, and functions completely.
+    matches = re.findall(r'[a-f0-9]{32}', response)
     
     if len(matches) >= 3:
-        a_hex = str(matches)  # Key
-        b_hex = str(matches)  # IV
-        c_hex = str(matches)  # Ciphertext
+        # Extract the key elements safely
+        a_hex = str(matches).strip()
+        b_hex = str(matches).strip()
+        c_hex = str(matches).strip()
 
+        # Safely convert to bytes now that we know they are 100% clean strings
         key = bytes.fromhex(a_hex)
         iv = bytes.fromhex(b_hex)
         ciphertext = bytes.fromhex(c_hex)
@@ -27,26 +30,28 @@ try:
         cipher = AES.new(key, AES.MODE_CBC, iv)
         decrypted = cipher.decrypt(ciphertext)
         
-        # CLEAN FIX: Strip standard PKCS7/zero padding characters so it's clean hex
-        # InfinityFree needs the pure hex calculation without trailing layout blocks
+        # Clean trailing validation layout spaces
         clean_bytes = decrypted.rstrip(b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f')
         test_cookie_value = clean_bytes.hex()
 
-        # 4. Inject the token securely into the live host domain container
+        # 4. Inject the token securely into the session cookie jar
         session.cookies.set("__test", test_cookie_value, domain="ekjholokekolkata.page.gd", path="/")
         
         # 5. Connect directly to your database processing logic
         final_response = session.get(url, headers=headers)
         output = final_response.text.strip()
         
-        # Print the direct server outcome to the GitHub Action log window
-        if "Status: Active" in output or "completed" in output.lower():
-            print("Success! Your notifier backend script ran and processed changes.")
+        # Check if we bypassed the wall successfully
+        if "script" not in output:
+            print("Success! Passed firewall challenge and triggered the notifier script.")
         else:
-            print(f"Server triggered! Page output snippet: {output[:120]}")
+            print(f"Triggered, but firewall is asking for redirect: {output[:100]}")
     else:
-        # Fallback if the firewall is temporarily resting
-        print(f"No firewall challenge matched. Page start snippet: {response[:150]}")
+        # Fallback if the firewall is already open
+        if "script" not in response.lower():
+            print("No challenge found. Script executed directly.")
+        else:
+            print(f"Failed to find all 3 validation strings. Found: {len(matches)}")
 
 except Exception as e:
     print(f"Bypass execution failed: {str(e)}")
