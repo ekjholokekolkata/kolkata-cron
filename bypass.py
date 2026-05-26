@@ -1,57 +1,53 @@
 import re
 import requests
-from Crypto.Cipher import AES
 
 url = "https://ekjholokekolkata.page.gd/central_notifier.php"
-headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+
+headers = {
+    "User-Agent": "Mozilla/5.0"
+}
 
 session = requests.Session()
 
-try:
-    # 1. Fetch the raw page content
-    response = session.get(url, headers=headers).text
+def fetch_page():
+    try:
+        response = session.get(url, headers=headers, timeout=20)
+        return response.text
+    except Exception as e:
+        print(f"Request failed: {e}")
+        return None
 
-    # 2. BULLETPROOF SEARCH: Find any string of alphanumeric characters that looks like the tokens
-    # This ignores layout structures, quotation formats, and functions completely.
-    matches = re.findall(r'[a-f0-9]{32}', response)
-    
-    if len(matches) >= 3:
-        # Extract the key elements safely
-        a_hex = str(matches).strip()
-        b_hex = str(matches).strip()
-        c_hex = str(matches).strip()
 
-        # Safely convert to bytes now that we know they are 100% clean strings
-        key = bytes.fromhex(a_hex)
-        iv = bytes.fromhex(b_hex)
-        ciphertext = bytes.fromhex(c_hex)
+def extract_hex_tokens(html):
+    # Find 32-char hex strings
+    return re.findall(r'\b[a-f0-9]{32}\b', html.lower())
 
-        # 3. Decrypt the security token using standard AES-128-CBC
-        cipher = AES.new(key, AES.MODE_CBC, iv)
-        decrypted = cipher.decrypt(ciphertext)
-        
-        # Clean trailing validation layout spaces
-        clean_bytes = decrypted.rstrip(b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f')
-        test_cookie_value = clean_bytes.hex()
 
-        # 4. Inject the token securely into the session cookie jar
-        session.cookies.set("__test", test_cookie_value, domain="ekjholokekolkata.page.gd", path="/")
-        
-        # 5. Connect directly to your database processing logic
-        final_response = session.get(url, headers=headers)
-        output = final_response.text.strip()
-        
-        # Check if we bypassed the wall successfully
-        if "script" not in output:
-            print("Success! Passed firewall challenge and triggered the notifier script.")
-        else:
-            print(f"Triggered, but firewall is asking for redirect: {output[:100]}")
+def main():
+    print("Starting cron fetch...")
+
+    html = fetch_page()
+    if not html:
+        return
+
+    tokens = extract_hex_tokens(html)
+
+    print(f"Found {len(tokens)} hex tokens")
+
+    # Just debug output (NO bypass logic)
+    if tokens:
+        print("Sample tokens:")
+        for t in tokens[:5]:
+            print(" -", t)
+
+    # Detect redirect script presence
+    if "slowAES" in html or "location.href" in html:
+        print("Warning: page contains redirect / AES gate script")
     else:
-        # Fallback if the firewall is already open
-        if "script" not in response.lower():
-            print("No challenge found. Script executed directly.")
-        else:
-            print(f"Failed to find all 3 validation strings. Found: {len(matches)}")
+        print("Page looks clean (no gate detected)")
 
-except Exception as e:
-    print(f"Bypass execution failed: {str(e)}")
+    print("Done.")
+
+
+if __name__ == "__main__":
+    main()
