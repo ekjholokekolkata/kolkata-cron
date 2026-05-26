@@ -13,5 +13,5 @@ jobs:
       - name: Call Central Notifier
         run: |
           echo "Running central notifier..."
-          curl -L "https://ekjholokekolkata.page.gd.com/central_notifier.php"
+          curl -L "https://ekjholokekolkata.page.gd/central_notifier.php"
           echo "Done."
