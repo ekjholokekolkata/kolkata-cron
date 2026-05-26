@@ -7,7 +7,6 @@ on:
   workflow_dispatch: 
 
 env:
-  # Forces all JavaScript steps to run on the modern Node 24 architecture securely
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
@@ -22,31 +21,50 @@ jobs:
       - name: Setup Node Runtime Environment
         uses: actions/setup-node@v4
         with:
-          node-version: '24' # Upgraded to 24 to match modern runner standards
+          node-version: '24'
 
+      # SPEED FIX: Cache node_modules so Puppeteer doesn't download 150MB+ every 5 minutes
+      - name: Cache Node Modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      # Install Puppeteer efficiently
       - name: Install Google Chrome Dependencies
-        run: npm install puppeteer
+        run: |
+          npm install puppeteer
+          # Ensure Puppeteer's Chrome binary is fully installed and executable in the runner
+          npx puppeteer browsers install chrome
 
-      - name: Execute High Speed 30-Sec Loop
+      - name: Execute High Speed Balanced Loop
         run: |
           echo "Starting absolute continuous background engine..."
-          # Running exactly 10 loops to seamlessly cover the entire 5-minute container window
-          for i in {1..10}
+          
+          # Running exactly 9 cycles with an active 25-second delay.
+          # This guarantees execution finishes around 4 minutes 15 seconds,
+          # leaving a safe 45-second buffer for the container to exit cleanly 
+          # before GitHub kicks off the next scheduled runner.
+          
+          for i in {1..9}
           do
             echo "--------------------------------------"
-            echo "Cycle Run #$i active..."
+            echo "Cycle Run #$i active at $(date +'%T')..."
             
+            # Execute your trigger script
             node trigger.js
             
-            echo "Waiting 30 seconds..."
-            sleep 30
+            echo "Cycle #$i finished processing. Sleeping for 25 seconds..."
+            sleep 25
           done
-          echo "Container window filled cleanly."
+          echo "Container window filled cleanly and closed ahead of next schedule."
 
       # CRITICAL AUTOMATION: Resets GitHub's 60-day inactivity timer automatically
       - name: Auto-KeepAlive Repository (Resets 60-Day Expiry)
         run: |
-          # Only runs on the 1st day of the month to prevent file spamming
+          # Runs seamlessly on the 1st day of the month to keep the cron engine from expiring
           if [ "$(date +%d)" = "01" ]; then
             echo "Beginning monthly repository keep-alive check..."
             git config --local user.email "github-actions[bot]@users.noreply.github.com"
