@@ -13,5 +13,11 @@ jobs:
       - name: Call Central Notifier
         run: |
           echo "Running central notifier..."
-          curl -L "https://ekjholokekolkata.page.gd/central_notifier.php?i=1"
+
+          curl -L \
+            --fail \
+            --show-error \
+            --max-time 30 \
+            "https://ekjholokekolkata.page.gd/central_notifier.php?i=1"
+
           echo "Done."
