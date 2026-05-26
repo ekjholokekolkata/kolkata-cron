@@ -23,11 +23,13 @@ jobs:
         with:
           node-version: '24'
 
-      # SPEED FIX: Cache node_modules so Puppeteer doesn't download 150MB+ every 5 minutes
+      # SPEED FIX: Cache node_modules and Puppeteer browser binaries so they don't fresh-download every 5 minutes
       - name: Cache Node Modules
         uses: actions/cache@v4
         with:
-          path: ~/.npm
+          path: |
+            ~/.npm
+            ~/.cache/puppeteer
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
@@ -43,12 +45,13 @@ jobs:
         run: |
           echo "Starting absolute continuous background engine..."
           
-          # Running exactly 9 cycles with an active 25-second delay.
-          # This guarantees execution finishes around 4 minutes 15 seconds,
-          # leaving a safe 45-second buffer for the container to exit cleanly 
-          # before GitHub kicks off the next scheduled runner.
+          # Balanced to exactly 7 cycles with an active 25-second delay.
+          # Including the execution overhead of Puppeteer (~11-12s per hit), 
+          # 7 cycles will consistently finish at around 4 minutes and 20 seconds.
+          # This leaves a safe 40-second buffer for the container to save cache and exit cleanly 
+          # BEFORE GitHub triggers the next chronological container, preventing overlap.
           
-          for i in {1..9}
+          for i in {1..7}
           do
             echo "--------------------------------------"
             echo "Cycle Run #$i active at $(date +'%T')..."
