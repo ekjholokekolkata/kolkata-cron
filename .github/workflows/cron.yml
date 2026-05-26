@@ -1,20 +1,40 @@
-name: Central Notifier Cron
+name: Continuous Cloud Cron Engine
 
 on:
   schedule:
+    # Boots up the cloud engine automatically every 5 minutes
     - cron: '*/5 * * * *'
-  workflow_dispatch:
+  workflow_dispatch: # Keeps the manual run button active
 
 jobs:
-  run-cron:
+  run_cron_loop:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Trigger Central Notifier
+      - name: Pull Code Base
+        uses: actions/checkout@v4
+
+      - name: Setup Node Runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Google Chrome Dependencies
+        run: npm install puppeteer
+
+      - name: Execute High Speed 30-Sec Loop
         run: |
-          echo "Calling InfinityFree cron..."
-
-          curl -i -L --fail --show-error --max-time 30 \
-          "https://ekjholokekolkata.page.gd/cron.php?token=CHANGE_THIS_TO_STRONG_RANDOM_STRING"
-
-          echo "Done."
+          echo "Starting background loop engine..."
+          
+          # Runs exactly 9 times (approx 5 minutes total with the script's internal 6-second sleep)
+          for i in {1..9}
+          do
+            echo "--------------------------------------"
+            echo "Cycle Run #$i active..."
+            
+            node trigger.js
+            
+            echo "Waiting 30 seconds..."
+            sleep 30
+          done
+          
+          echo "Block window closed safely. Passing over to next automatic cron container."
