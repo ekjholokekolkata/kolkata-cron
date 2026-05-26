@@ -1,10 +1,10 @@
-name: Continuous Cloud Cron Engine
+name: Continuous 24-7 Cloud Cron Engine
 
 on:
   schedule:
-    # Boots up the cloud engine automatically every 5 minutes
+    # Wakes up a container every 5 minutes automatically, 24/7
     - cron: '*/5 * * * *'
-  workflow_dispatch: # Keeps the manual run button active
+  workflow_dispatch: 
 
 jobs:
   run_cron_loop:
@@ -12,8 +12,10 @@ jobs:
     steps:
       - name: Pull Code Base
         uses: actions/checkout@v4
+        with:
+          persist-credentials: true # Crucial for the automatic keep-alive system to push changes
 
-      - name: Setup Node Runtime
+      - name: Setup Node Runtime Environment
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -23,10 +25,9 @@ jobs:
 
       - name: Execute High Speed 30-Sec Loop
         run: |
-          echo "Starting background loop engine..."
-          
-          # Runs exactly 9 times (approx 5 minutes total with the script's internal 6-second sleep)
-          for i in {1..9}
+          echo "Starting absolute continuous background engine..."
+          # Running exactly 10 loops to seamlessly cover the entire 5-minute container window
+          for i in {1..10}
           do
             echo "--------------------------------------"
             echo "Cycle Run #$i active..."
@@ -36,5 +37,21 @@ jobs:
             echo "Waiting 30 seconds..."
             sleep 30
           done
-          
-          echo "Block window closed safely. Passing over to next automatic cron container."
+          echo "Container window filled cleanly."
+
+      # CRITICAL AUTOMATION: Resets GitHub's 60-day inactivity timer automatically
+      - name: Auto-KeepAlive Repository (Resets 60-Day Expiry)
+        run: |
+          # Only runs on the 1st day of the month to prevent file spamming
+          if [ "$(date +%d)" = "01" ]; then
+            echo "Beginning monthly repository keep-alive check..."
+            git config --local user.email "github-actions[bot]@users.noreply.github.com"
+            git config --local user.name "github-actions[bot]"
+            date > keep_alive.txt
+            git add keep_alive.txt
+            git commit -m "Automated system update: Keep-Alive pulse" || exit 0
+            git push
+            echo "Keepalive check cleared. Expiry timer successfully reset for another 60 days."
+          else
+            echo "Keepalive check skipped (Runs automatically on the 1st of every month)."
+          fi
